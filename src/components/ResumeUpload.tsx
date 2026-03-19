@@ -10,7 +10,7 @@ interface UploadedFile {
 }
 
 interface ResumeUploadProps {
-  onUploadsComplete: (files: { name: string; contentBase64: string }[]) => void;
+  onUploadsComplete: (files: File[]) => void;
 }
 
 export default function ResumeUpload({ onUploadsComplete }: ResumeUploadProps) {
@@ -18,21 +18,9 @@ export default function ResumeUpload({ onUploadsComplete }: ResumeUploadProps) {
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const readFileAsBase64 = (file: File): Promise<string> => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => {
-        const base64String = (reader.result as string).split(",")[1];
-        resolve(base64String);
-      };
-      reader.onerror = () => reject(reader.error);
-      reader.readAsDataURL(file);
-    });
-  };
+
 
   const processFilesLocally = async (fileList: File[]) => {
-    const results: { name: string; contentBase64: string }[] = [];
-
     for (let i = 0; i < fileList.length; i++) {
       const file = fileList[i];
       setFiles((prev) =>
@@ -40,29 +28,17 @@ export default function ResumeUpload({ onUploadsComplete }: ResumeUploadProps) {
           f.name === file.name ? { ...f, status: "uploading", progress: 50 } : f
         )
       );
-
-      try {
-        const base64 = await readFileAsBase64(file);
-        results.push({ name: file.name, contentBase64: base64 });
-        
-        setFiles((prev) =>
-          prev.map((f) =>
-            f.name === file.name ? { ...f, status: "done", progress: 100 } : f
-          )
-        );
-      } catch (error) {
-        setFiles((prev) =>
-          prev.map((f) =>
-            f.name === file.name
-              ? { ...f, status: "error", error: "Failed to read file locally" }
-              : f
-          )
-        );
-      }
+      
+      // We simulate local processing finishing, actual network happens in page.tsx
+      setFiles((prev) =>
+        prev.map((f) =>
+          f.name === file.name ? { ...f, status: "done", progress: 100 } : f
+        )
+      );
     }
 
-    if (results.length > 0) {
-      onUploadsComplete(results);
+    if (fileList.length > 0) {
+      onUploadsComplete(fileList);
     }
   };
 

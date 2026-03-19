@@ -6,25 +6,18 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
-    const { files } = body; // Array of { name, contentBase64 }
+    const formData = await request.formData();
+    const file = formData.get("file") as File;
 
-    if (!files || !Array.isArray(files) || files.length === 0) {
-      return NextResponse.json({ error: "No files provided" }, { status: 400 });
+    if (!file) {
+      return NextResponse.json({ error: "No file provided" }, { status: 400 });
     }
 
-    const processFile = async (file: any) => {
-      if (!file.contentBase64) {
-        return {
-          fileName: file.name,
-          name: null,
-          email: null,
-          phone: null,
-          error: "No file content provided",
-        };
-      }
-
+    const processFile = async (f: File) => {
       try {
+        const bytes = await f.arrayBuffer();
+        const base64Data = Buffer.from(bytes).toString("base64");
+
         const model = genAI.getGenerativeModel({ 
           model: "gemini-2.5-flash", 
           generationConfig: { responseMimeType: "application/json" } 
@@ -37,7 +30,7 @@ Return the result strictly as a JSON object with keys "name", "email", and "phon
           prompt,
           {
             inlineData: {
-              data: file.contentBase64,
+              data: base64Data,
               mimeType: "application/pdf"
             }
           }
@@ -47,7 +40,7 @@ Return the result strictly as a JSON object with keys "name", "email", and "phon
         const parsedData = JSON.parse(responseText);
 
         return {
-          fileName: file.name,
+          fileName: f.name,
           name: parsedData.name || null,
           email: parsedData.email || null,
           phone: parsedData.phone || null,
@@ -56,7 +49,7 @@ Return the result strictly as a JSON object with keys "name", "email", and "phon
       } catch (err) {
         console.error("Extraction error:", err);
         return {
-          fileName: file.name,
+          fileName: f.name,
           name: null,
           email: null,
           phone: null,
@@ -65,10 +58,10 @@ Return the result strictly as a JSON object with keys "name", "email", and "phon
       }
     };
 
-    // Process all files concurrently
-    const results = await Promise.all(files.map(processFile));
+    // Process the single file and return array to preserve compatibility with UI that expects data.results
+    const result = await processFile(file);
 
-    return NextResponse.json({ results });
+    return NextResponse.json({ results: [result] });
   } catch (err) {
     return NextResponse.json(
       { error: `Server error: ${err instanceof Error ? err.message : "Unknown error"}` },

@@ -98,21 +98,46 @@ export default function WorkspaceDetailPage() {
   }, [workspaceId, user]);
 
   const handleUploadsComplete = useCallback(
-    async (files: { name: string; contentBase64: string }[]) => {
+    async (files: File[]) => {
       setParsing(true);
 
       try {
-        const processBatch = async (batchFiles: { name: string; contentBase64: string }[]) => {
-          const response = await fetch("/api/parse-resumes", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ files: batchFiles }),
-          });
-          const data = await response.json();
-          return data.results || [];
+        const processFile = async (file: File) => {
+          const formData = new FormData();
+          formData.append("file", file);
+
+          try {
+            const response = await fetch("/api/parse-resumes", {
+              method: "POST",
+              body: formData,
+            });
+
+            if (!response.ok) {
+              console.error(`Error parsing ${file.name}:`, response.statusText);
+              return [{
+                fileName: file.name,
+                name: null,
+                email: null,
+                phone: null,
+                error: response.status === 413 ? "File too large (limit ~4MB)" : "Failed to parse resume"
+              }];
+            }
+
+            const data = await response.json();
+            return data.results || [];
+          } catch (err) {
+            console.error(`Fetch error for ${file.name}:`, err);
+            return [{
+              fileName: file.name,
+              name: null,
+              email: null,
+              phone: null,
+              error: "Network error parsing resume"
+            }];
+          }
         };
 
-        const promises = files.map(file => processBatch([file]));
+        const promises = files.map(file => processFile(file));
         const allResultsArrays = await Promise.all(promises);
         const allResults = allResultsArrays.flat();
 
