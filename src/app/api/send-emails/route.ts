@@ -2,8 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { v4 as uuidv4 } from "uuid";
 
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
-
 // Initialize Gemini
 function getGeminiModel() {
   const apiKey = process.env.GEMINI_API_KEY;
@@ -124,6 +122,17 @@ async function sendBrevoEmail(params: {
 
 export async function POST(request: NextRequest) {
   try {
+    let appUrl = request.headers.get('origin') || 
+                   (process.env.VERCEL_PROJECT_PRODUCTION_URL ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}` : null) || 
+                   (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null) || 
+                   process.env.NEXT_PUBLIC_APP_URL || 
+                   request.nextUrl.origin || 
+                   "http://localhost:3000";
+
+    if (appUrl.includes("localhost") && process.env.VERCEL_URL) {
+      appUrl = `https://${process.env.VERCEL_URL}`;
+    }
+
     const body = await request.json();
     const {
       candidates,
@@ -158,7 +167,7 @@ export async function POST(request: NextRequest) {
       try {
         // Generate unique interview link and password
         const uniqueToken = uuidv4();
-        const interviewLink = `${APP_URL}/interview/${workspaceId}/${uniqueToken}`;
+        const interviewLink = `${appUrl}/interview/${workspaceId}/${uniqueToken}`;
         const interviewPassword = Math.random().toString(36).slice(-8); // 8-char random alphanumeric
 
         // Generate personalized email with Gemini
