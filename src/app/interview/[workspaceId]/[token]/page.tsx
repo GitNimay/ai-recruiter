@@ -8,7 +8,7 @@ import Script from "next/script";
 
 type Step = "auth" | "resume" | "setup" | "interview" | "processing" | "report";
 
-// Helper components
+// Helper components COMPO
 const TicTacToe = () => {
   const [board, setBoard] = useState<(string | null)[]>(Array(9).fill(null));
   const [isXNext, setIsXNext] = useState(true);
